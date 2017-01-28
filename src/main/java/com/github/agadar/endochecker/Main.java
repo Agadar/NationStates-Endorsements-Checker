@@ -10,10 +10,10 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Scanner;
 import java.util.logging.Level;
+import java.util.logging.LogManager;
 import java.util.logging.Logger;
 
 /**
@@ -62,9 +62,31 @@ public class Main {
     }
     
     /**
+     * Prints a message to System.err and exits the program with error code 1.
+     * @param errorMsg The error message to print.
+     */
+    private static void ExitWithError(String errorMsg) {
+        System.err.println(errorMsg);
+        System.exit(1);
+    }
+    
+    /**
+     * Gives the correct URL to the supplied nation's page.
+     * @param nationName
+     * @return 
+     */
+    private static String BuildNationUrl(String nationName) {
+        return "https://www.nationstates.net/nation=" + nationName;
+    }
+    
+    /**
      * @param args the command line arguments
      */
     public static void main(String[] args) {
+        // Turn off the default logging so we don't spam the CLI.
+        LogManager.getLogManager().reset();
+        
+        // Set user agent for API, instantiate scanner for user input.
         NSAPI.setUserAgent("Agadar's Endorsements Checker "
                 + "(https://github.com/Agadar/Endorsements-Checker)");
         final Scanner scanIn = new Scanner(System.in);
@@ -83,17 +105,13 @@ public class Main {
 
         // Ensure the nation exists, aborting if it does not.
         if (nationToCheckObj == null) {
-            System.err.println("The specified nation '" + nationToCheck + 
-                    "' was not found!");
-            return;
+            ExitWithError("The nation '" + nationToCheck + "' was not found!");
         }
         
         // Ensure the nation is actually a member of the WA, otherwise
         // there is no point in continuing.
         if (!IsWAMember(nationToCheckObj.WorldAssemblyStatus)) {
-            System.err.println("The specified nation '" + nationToCheck +
-                    "' is not a WA member!");
-            return;
+            ExitWithError("The nation '" + nationToCheck + "' is not a WA member!");
         }
 
         // Retrieve nations list of specified region.
@@ -102,9 +120,7 @@ public class Main {
         
         // Ensure the region exists, aborting if it does not.
         if (region == null) {
-            System.err.println("The region in which the specified nation resides"
-                    + " was not found!");
-            return;
+            ExitWithError("The region in which the nation resides was not found!");
         }
         
         // The list to which we'll be adding all nations in the region that
@@ -128,15 +144,13 @@ public class Main {
         final List<String> waNationsNotYetEndorsed = new ArrayList<>();
 
         // For each nation in the region...
-        for (String curNation : region.NationNames) {
+        region.NationNames.stream().filter((curNation) -> !(curNation.equals(nationToCheck))).forEach((curNation) -> {
             // If this is the nation we're meant to check, just continue.
-            if (curNation.equals(nationToCheck)) { continue; }
-            
             // Retrieve nation's WA status and endorsedby list.
             final Nation curNationObj = NSAPI.nation(curNation).shards(
                     NationShard.WorldAssemblyStatus, NationShard.EndorsedBy)
                     .execute();
-
+            
             // If the nation exists and is a WA member, then add it to the
             // world assembly members list.
             if (curNationObj != null && IsWAMember(curNationObj.WorldAssemblyStatus)) {
@@ -153,13 +167,13 @@ public class Main {
                     waNationsNotEndorsing.add(curNation);
                 }
             }
-        }
+        });
 
         // Print info.
         System.out.println("WA members in the region: " + waNations.size());
-        System.out.println("...that are endorsed by the specified nation,"
+        System.out.println("...that are endorsed by '" + nationToCheck + "',"
                 + " but are not endorsing back: " + waNationsNotEndorsing.size());
-        System.out.println("...that are NOT yet endorsed by the specified nation: "
+        System.out.println("...that are NOT endorsed by '" + nationToCheck + "': "
                 + waNationsNotYetEndorsed.size());
 
         // If requested, open browser tab for each nation not being endorsed
@@ -175,8 +189,7 @@ public class Main {
                 try {
                     // For each nation, open a browser tab.
                     for (String curNation : waNationsNotYetEndorsed) {
-                        desktop.browse(new URI("https://"
-                                + "www.nationstates.net/nation=" + curNation));
+                        desktop.browse(new URI(BuildNationUrl(curNation)));
                         // Required sleep, otherwise we get an error on some machines/browsers.
                         Thread.sleep(1000);
                     }
@@ -188,6 +201,12 @@ public class Main {
                 System.err.println("Opening browser tabs is not supported on "
                         + "your Operating System!");
             }
+        } else if (PromptYesOrNo(scanIn, "Print URLs to each nation not yet endorsed?")) {
+            // If the user does not want to have browser tabs opened for all
+            // nations to endorse, then offer to print URLS for them instead.
+            waNationsNotYetEndorsed.stream().forEach((curNation) -> {
+                System.out.println(BuildNationUrl(curNation));
+            });
         }
         
         // If requested, send telegrams to each nation already endorsed but not
