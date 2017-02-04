@@ -33,7 +33,7 @@ public class Main {
      * @param question The question to prompt the user.
      * @return The user's answer.
      */
-    private static String PromptQuestion(Scanner scanIn, String question) {
+    private static String promptQuestion(Scanner scanIn, String question) {
         System.out.print(question + ": ");
         return scanIn.nextLine();
     }
@@ -46,7 +46,7 @@ public class Main {
      * @param question The binary question to prompt the user.
      * @return True if the user answered 'y' or 'yes', otherwise false.
      */
-    private static boolean PromptYesOrNo(Scanner scanIn, String question) {
+    private static boolean promptYesOrNo(Scanner scanIn, String question) {
         System.out.print(question + " (y/n?): ");
         final String reply = scanIn.nextLine().toLowerCase();
         return (reply != null && ("y".equals(reply) || "yes".equals(reply)));
@@ -59,7 +59,7 @@ public class Main {
      * @param worldAssemblyStatus The WA status of a nation.
      * @return Whether or not the owning nation is a WA member/delegate.
      */
-    private static boolean IsWAMember(WorldAssemblyStatus worldAssemblyStatus) {
+    private static boolean isWAMember(WorldAssemblyStatus worldAssemblyStatus) {
         return worldAssemblyStatus != null && (worldAssemblyStatus == WorldAssemblyStatus.MEMBER
                 || worldAssemblyStatus == WorldAssemblyStatus.DELEGATE);
     }
@@ -69,7 +69,7 @@ public class Main {
      *
      * @param errorMsg The error message to print.
      */
-    private static void ExitWithError(String errorMsg) {
+    private static void exitWithError(String errorMsg) {
         System.err.println(errorMsg);
         System.exit(1);
     }
@@ -80,7 +80,7 @@ public class Main {
      * @param nationName
      * @return
      */
-    private static String BuildNationUrl(String nationName) {
+    private static String buildNationUrl(String nationName) {
         return "https://www.nationstates.net/nation=" + nationName;
     }
 
@@ -105,7 +105,7 @@ public class Main {
         final Scanner scanIn = new Scanner(System.in);
 
         // Retrieve region name and nation name from user.
-        final String nationToCheck = PromptQuestion(scanIn,
+        final String nationToCheck = promptQuestion(scanIn,
                 "Nation whose endorsements to check").toLowerCase()
                 .replace(' ', '_');
 
@@ -118,13 +118,13 @@ public class Main {
 
         // Ensure the nation exists, aborting if it does not.
         if (nationToCheckObj == null) {
-            ExitWithError("The nation '" + nationToCheck + "' was not found!");
+            exitWithError("The nation '" + nationToCheck + "' was not found!");
         }
 
         // Ensure the nation is actually a member of the WA, otherwise
         // there is no point in continuing.
-        if (!IsWAMember(nationToCheckObj.worldAssemblyStatus)) {
-            ExitWithError("The nation '" + nationToCheck + "' is not a WA member!");
+        if (!isWAMember(nationToCheckObj.worldAssemblyStatus)) {
+            exitWithError("The nation '" + nationToCheck + "' is not a WA member!");
         }
 
         // Retrieve nations list of specified region.
@@ -133,7 +133,7 @@ public class Main {
 
         // Ensure the region exists, aborting if it does not.
         if (region == null) {
-            ExitWithError("The region in which the nation resides was not found!");
+            exitWithError("The region in which the nation resides was not found!");
         }
 
         // The list to which we'll be adding all nations in the region that
@@ -177,7 +177,7 @@ public class Main {
 
             // If the nation exists and is a WA member, then add it to the
             // world assembly members list.
-            if (curNationObj != null && IsWAMember(curNationObj.worldAssemblyStatus)) {
+            if (curNationObj != null && isWAMember(curNationObj.worldAssemblyStatus)) {
                 waNations.add(curNation);
 
                 // If the nation is not already being endorsed by the nation to
@@ -207,44 +207,44 @@ public class Main {
 
         // If requested, open browser tab for each nation not being endorsed
         // by the nation to check.
-        if (browserSupport && PromptYesOrNo(scanIn, "Open browser tab for each nation not yet endorsed?")) {
+        if (browserSupport && promptYesOrNo(scanIn, "Open browser tab for each nation not yet endorsed?")) {
             try {
                 // For each nation, open a browser tab.
                 for (String curNation : waNationsNotYetEndorsed) {
-                    desktop.browse(new URI(BuildNationUrl(curNation)));
+                    desktop.browse(new URI(buildNationUrl(curNation)));
                     // Required sleep, otherwise we get an error on some machines/browsers.
                     Thread.sleep(1000);
                 }
             } catch (URISyntaxException | IOException | InterruptedException e) {
                 Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, e);
             }
-        } else if (PromptYesOrNo(scanIn, "Print URLs to each nation not yet endorsed?")) {
+        } else if (promptYesOrNo(scanIn, "Print URLs to each nation not yet endorsed?")) {
             // If the user does not want to have browser tabs opened for all
             // nations to endorse, then offer to print URLS for them instead.
             waNationsNotYetEndorsed.stream().forEach((curNation) -> {
-                System.out.println(BuildNationUrl(curNation));
+                System.out.println(buildNationUrl(curNation));
             });
             System.out.println();
         }
 
         // If requested, open browser tab for each nation endorsed by the specified nation
         // but not endorsing back.
-        if (browserSupport && PromptYesOrNo(scanIn, "Open browser tab for each nation already endorsed, but that is not endorsing back?")) {
+        if (browserSupport && promptYesOrNo(scanIn, "Open browser tab for each nation already endorsed, but that is not endorsing back?")) {
             try {
                 // For each nation, open a browser tab.
                 for (String curNation : waNationsNotEndorsing) {
-                    desktop.browse(new URI(BuildNationUrl(curNation)));
+                    desktop.browse(new URI(buildNationUrl(curNation)));
                     // Required sleep, otherwise we get an error on some machines/browsers.
                     Thread.sleep(1000);
                 }
             } catch (URISyntaxException | IOException | InterruptedException e) {
                 Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, e);
             }
-        } else if (PromptYesOrNo(scanIn, "Print URLs to each nation already endorsed, but that is not endorsing back?")) {
+        } else if (promptYesOrNo(scanIn, "Print URLs to each nation already endorsed, but that is not endorsing back?")) {
             // If the user does not want to have browser tabs opened for all
             // nations to endorse, then offer to print URLS for them instead.
             waNationsNotEndorsing.stream().forEach((curNation) -> {
-                System.out.println(BuildNationUrl(curNation));
+                System.out.println(buildNationUrl(curNation));
             });
             System.out.println();
         }
