@@ -1,10 +1,12 @@
 package com.github.agadar.endochecker;
 
-import com.github.agadar.nsapi.NSAPI;
-import com.github.agadar.nsapi.domain.nation.Nation;
-import com.github.agadar.nsapi.domain.region.Region;
-import com.github.agadar.nsapi.enums.shard.NationShard;
-import com.github.agadar.nsapi.enums.shard.RegionShard;
+import com.github.agadar.nationstates.NationStates;
+import com.github.agadar.nationstates.domain.nation.Nation;
+import com.github.agadar.nationstates.domain.region.Region;
+import com.github.agadar.nationstates.enumerator.WorldAssemblyStatus;
+import com.github.agadar.nationstates.shard.NationShard;
+import com.github.agadar.nationstates.shard.RegionShard;
+
 import java.awt.Desktop;
 import java.io.IOException;
 import java.net.URI;
@@ -51,15 +53,15 @@ public class Main {
     }
 
     /**
-     * Returns whether or not the nation to which the supplied WA status string
-     * belongs to is a member of the WA.
+     * Returns whether or not the nation to which the supplied WA status belongs
+     * to is a member/delegate of the WA.
      *
-     * @param waStatusString The WA status of a nation.
-     * @return Whether or not the owning nation is a WA member.
+     * @param worldAssemblyStatus The WA status of a nation.
+     * @return Whether or not the owning nation is a WA member/delegate.
      */
-    private static boolean IsWAMember(String waStatusString) {
-        return waStatusString != null && (waStatusString.equals("WA Member")
-                || waStatusString.equals("WA Delegate"));
+    private static boolean IsWAMember(WorldAssemblyStatus worldAssemblyStatus) {
+        return worldAssemblyStatus != null && (worldAssemblyStatus == WorldAssemblyStatus.MEMBER
+                || worldAssemblyStatus == WorldAssemblyStatus.DELEGATE);
     }
 
     /**
@@ -98,7 +100,7 @@ public class Main {
         }
 
         // Set user agent for API, instantiate scanner for user input.
-        NSAPI.setUserAgent("Agadar's Endorsements Checker "
+        NationStates.setUserAgent("Agadar's Endorsements Checker "
                 + "(https://github.com/Agadar/Endorsements-Checker)");
         final Scanner scanIn = new Scanner(System.in);
 
@@ -110,9 +112,9 @@ public class Main {
         // Retrieve the nation's home region from the API. While we're at it,
         // also prematurely fetch the nation's endorsedby list and his
         // endorsements status.
-        final Nation nationToCheckObj = NSAPI.nation(nationToCheck)
-                .shards(NationShard.WorldAssemblyStatus, NationShard.RegionName,
-                        NationShard.EndorsedBy).execute();
+        final Nation nationToCheckObj = NationStates.nation(nationToCheck)
+                .shards(NationShard.WORLD_ASSEMBLY_STATUS, NationShard.REGION_NAME,
+                        NationShard.ENDORSED_BY).execute();
 
         // Ensure the nation exists, aborting if it does not.
         if (nationToCheckObj == null) {
@@ -121,13 +123,13 @@ public class Main {
 
         // Ensure the nation is actually a member of the WA, otherwise
         // there is no point in continuing.
-        if (!IsWAMember(nationToCheckObj.WorldAssemblyStatus)) {
+        if (!IsWAMember(nationToCheckObj.worldAssemblyStatus)) {
             ExitWithError("The nation '" + nationToCheck + "' is not a WA member!");
         }
 
         // Retrieve nations list of specified region.
-        final Region region = NSAPI.region(nationToCheckObj.RegionName)
-                .shards(RegionShard.NationNames).execute();
+        final Region region = NationStates.region(nationToCheckObj.regionName)
+                .shards(RegionShard.NATION_NAMES).execute();
 
         // Ensure the region exists, aborting if it does not.
         if (region == null) {
@@ -155,13 +157,13 @@ public class Main {
         final List<String> waNationsNotYetEndorsed = new ArrayList<>();
 
         // Print info.
-        System.out.println("Number of nations in region '" + nationToCheckObj.RegionName + "': " + region.NationNames.size());
-        System.out.println("Estimated duration: ~" + (int) ((float) region.NationNames.size() * 0.6010f) + " seconds" + System.lineSeparator());
+        System.out.println("Number of nations in region '" + nationToCheckObj.regionName + "': " + region.nationNames.size());
+        System.out.println("Estimated duration: ~" + (int) ((float) region.nationNames.size() * 0.6010f) + " seconds" + System.lineSeparator());
         System.out.println("Retrieving nations data from NationStates API...");
 
         // For each nation in the region...
-        for (int progress = 0; progress < region.NationNames.size(); progress++) {
-            final String curNation = region.NationNames.get(progress);
+        for (int progress = 0; progress < region.nationNames.size(); progress++) {
+            final String curNation = region.nationNames.get(progress);
 
             // Skip this nation if it's the nation to check.
             if (curNation.equals(nationToCheck)) {
@@ -169,29 +171,29 @@ public class Main {
             }
 
             // Retrieve nation's WA status and endorsedby list.
-            final Nation curNationObj = NSAPI.nation(curNation).shards(
-                    NationShard.WorldAssemblyStatus, NationShard.EndorsedBy)
+            final Nation curNationObj = NationStates.nation(curNation).shards(
+                    NationShard.WORLD_ASSEMBLY_STATUS, NationShard.ENDORSED_BY)
                     .execute();
 
             // If the nation exists and is a WA member, then add it to the
             // world assembly members list.
-            if (curNationObj != null && IsWAMember(curNationObj.WorldAssemblyStatus)) {
+            if (curNationObj != null && IsWAMember(curNationObj.worldAssemblyStatus)) {
                 waNations.add(curNation);
 
                 // If the nation is not already being endorsed by the nation to
                 // check, then add it to waNationsNotYetEndorsed.
-                if (!curNationObj.EndorsedBy.contains(nationToCheck)) {
+                if (!curNationObj.endorsedBy.contains(nationToCheck)) {
                     waNationsNotYetEndorsed.add(curNation);
                 } // Else, if the nation is not endorsing the nation to check, then add
                 // it to waNationsNotEndorsing.
-                else if (!nationToCheckObj.EndorsedBy.contains(curNation)) {
+                else if (!nationToCheckObj.endorsedBy.contains(curNation)) {
                     waNationsNotEndorsing.add(curNation);
                 }
             }
 
             // Print progress, but don't spam it.
             if ((progress + 1) % 2 == 0) {
-                System.out.println("Retrieved " + (progress + 1) + "/" + region.NationNames.size() + " nations data...");
+                System.out.println("Retrieved " + (progress + 1) + "/" + region.nationNames.size() + " nations data...");
             }
         }
 
